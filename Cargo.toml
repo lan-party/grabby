@@ -6,5 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.89"
+base64 = "0.22.1"
 lazy_static = "1.5.0"
+walkdir = "2.5.0"
 winapi = { version = "0.3.9", features = ["dpapi", "errhandlingapi"] }
+zip = "2.2.0"
+zip-extensions = "0.8.1"
